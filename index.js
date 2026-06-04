@@ -33,7 +33,7 @@ app.get('/api/qa', async (req, res) => {
   }
 });
 
-// AI 对话（调用 DeepSeek）
+// AI 对话（调用智谱 GLM）
 app.post('/api/chat', async (req, res) => {
   const userMessage = req.body.message;
 
@@ -43,9 +43,9 @@ app.post('/api/chat', async (req, res) => {
 
   try {
     const response = await axios.post(
-      'https://api.deepseek.com/chat/completions',
+      'https://open.bigmodel.cn/api/paas/v4/chat/completions',  
       {
-        model: 'deepseek-chat',
+        model: 'glm-4-flash',  
         messages: [
           {
             role: 'system',
@@ -58,7 +58,7 @@ app.post('/api/chat', async (req, res) => {
       },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+          'Authorization': `Bearer ${process.env.GLM_API_KEY}`,  
           'Content-Type': 'application/json'
         },
         timeout: 30000
@@ -68,10 +68,11 @@ app.post('/api/chat', async (req, res) => {
     const reply = response.data.choices[0].message.content;
     res.json({ reply });
   } catch (err) {
-    console.error('DeepSeek API 错误:', err.response?.data || err.message);
+    console.error('GLM API 错误:', err.response?.data || err.message);
     res.status(500).json({ error: 'AI 服务暂时不可用，请稍后再试。' });
   }
 });
+
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
