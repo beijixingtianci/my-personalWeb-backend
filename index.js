@@ -142,7 +142,7 @@ const studentPresetQA = [
     reply: '国民健康保险是办完登陆证后自动加入的，只需要每个月定期缴纳保险费。学校保险（非强制）：http://n.foreignerdb.com/konkuk1'
   },
   {
-    keys: ['奖学金', '申请奖学金', 'topik奖学金'],
+    keys: ['如何获得奖学金', '申请奖学金', 'topik奖学金'],
     reply: '目前奖学金自动减免学费，不单独发放，除了TOPIK奖学金。具体要求和流程可以咨询学生会或国际处'
   },
   {
@@ -879,7 +879,7 @@ const systemPrompts = {
 
  student: `你是建国大学学生会AI助手"鹅秘书"，用亲切实用的中文回答同学们的校园生活问题。
 
-【核心知识库——请参考以下内容回答，回答要完整详细，不要只给简短一句】
+【核心知识库——请参考以下内容回答】
 
 📌 重要提醒：
 - 外国人本科生宿舍申请在宿舍主页无效！必须通过CISS(http://ciss.konkuk.ac.kr)申请
@@ -947,7 +947,7 @@ const systemPrompts = {
 - 就业支援：简历/面试/就业信息，每学期12次，韩语进行
 - 写作诊所：wein.konkuk.ac.kr，1:1指导，学期中随时申请
 
-📌 关键联系方式：
+📌 对应的联系方式：
 - CISS(外国人学生中心)：http://ciss.konkuk.ac.kr
 - 出入境：1345(多语言)，hikorea.go.kr
 - 建大健康保险公团：1577-1000(韩语)/033-811-2000(多语言)
@@ -962,10 +962,12 @@ const systemPrompts = {
 
 };
 
+
+
 // ==================== AI 对话 ==================== //
 app.post('/api/chat', async (req, res) => {
   const userMessage = req.body.message;
-  const source = req.body.source || 'personal';
+  const source = req.body.source || 'personal';  // ✅ 默认个人站
 
   if (!userMessage) {
     return res.status(400).json({ error: 'message 不能为空' });
@@ -973,31 +975,30 @@ app.post('/api/chat', async (req, res) => {
 
   console.log(`收到消息: [${source}] ${JSON.stringify(userMessage)}`);
 
+  // ✅ 根据 source 选择对应的预设问答
   const currentPresetQA = source === 'student' ? studentPresetQA : personalPresetQA;
 
-  // ✅ 只用正向匹配（用户消息包含关键词），去掉反向匹配
-  const matchedPreset = currentPresetQA.find(item =>
-    item.keys.some(key => userMessage.includes(key))
-  );
-
-  // ✅ 构建system prompt：基础人设 + 匹配到的预设知识
-  let systemContent = systemPrompts[source] || systemPrompts.personal;
-
-  if (matchedPreset) {
-    systemContent += `\n\n📌 用户的问题可能涉及以下参考信息，请基于此自由回答（不要照抄原文，要根据提问的具体内容组织语言，可以补充和展开）：\n${matchedPreset.reply}`;
+  // 先检查预设问答（秒回，不消耗API）
+  const preset = currentPresetQA.find(item =>
+  item.keys.some(key => userMessage.includes(key))
+);
+  if (preset) {
+    return res.json({ reply: preset.reply });
   }
 
-  // ✅ 所有问题都走AI，不再直接返回预设
   try {
     const response = await axios.post(
       'https://open.bigmodel.cn/api/paas/v4/chat/completions',
       {
         model: 'glm-4-flash',
         messages: [
-          { role: 'system', content: systemContent },
+          {
+            role: 'system',
+            content: systemPrompts[source] || systemPrompts.personal  // ✅ 动态选人设
+          },
           { role: 'user', content: userMessage }
         ],
-        max_tokens: 500,    // ✅ 从300提高到500，让AI有空间完整回答
+        max_tokens: 300,
         temperature: 0.7
       },
       {
